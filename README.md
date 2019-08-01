@@ -5,7 +5,7 @@ The test code can be found in tests/hartree-fock
 
 Under pi_tests, there are simple openMP codes that I wrote that do not use libint. One uses synchronization, and the other uses PAD to solve the integral of 4.0/(1+x^2) from 0 to 1 equals pi. 
 
-Information about the libint library is below. 
+Information about the libint library is below. The libint library is only used here and was not written by me. 
 
 --------------------
 

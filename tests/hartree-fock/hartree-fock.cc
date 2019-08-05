@@ -26,8 +26,6 @@
 #include <iomanip>
 #include <vector>
 #include <chrono>
-// openMP headers 
-#include <omp.h>
 
 // Eigen matrix algebra library
 #include <Eigen/Dense>
@@ -38,6 +36,9 @@
 #if !LIBINT2_CONSTEXPR_STATICS
 #  include <libint2/statics_definition.h>
 #endif
+
+// openMP 
+#include <omp.h> 
 
 using real_t = libint2::scalar_type;
 typedef Eigen::Matrix<real_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
@@ -199,13 +200,7 @@ int main(int argc, char *argv[]) {
       if (iter == 1) {
         cout << "\n\tFock Matrix:\n";
         cout << F << endl;
-        return 0;  
-      
       }
-
-      const auto tstop_matrix = std::chrono::high_resolution_clock::now();
-      const std::chrono::duration<double> time_elapsed_matrix = tstop_matrix - tstart;
-      printf(" \nthe matrix generation time is %10.5lf\n",time_elapsed_matrix.count());
 
       // solve F C = e S C
       Eigen::GeneralizedSelfAdjointEigenSolver<Matrix> gen_eig_solver(F, S);
@@ -213,35 +208,35 @@ int main(int argc, char *argv[]) {
       auto C = gen_eig_solver.eigenvectors();
 
       // compute density, D = C(occ) . C(occ)T
-     auto C_occ = C.leftCols(ndocc);
-     D = C_occ * C_occ.transpose();
+      auto C_occ = C.leftCols(ndocc);
+      D = C_occ * C_occ.transpose();
 
-     // compute HF energy
-     ehf = 0.0;
-     for (auto i = 0; i < nao; i++)
-       for (auto j = 0; j < nao; j++)
-         ehf += D(i,j) * (H(i,j) + F(i,j));
+      // compute HF energy
+      ehf = 0.0;
+      for (auto i = 0; i < nao; i++)
+        for (auto j = 0; j < nao; j++)
+          ehf += D(i,j) * (H(i,j) + F(i,j));
 
-     // compute difference with last iteration
-     ediff = ehf - ehf_last;
-     rmsd = (D - D_last).norm();
+      // compute difference with last iteration
+      ediff = ehf - ehf_last;
+      rmsd = (D - D_last).norm();
 
-     const auto tstop = std::chrono::high_resolution_clock::now();
-     const std::chrono::duration<double> time_elapsed = tstop - tstart;
+      const auto tstop = std::chrono::high_resolution_clock::now();
+      const std::chrono::duration<double> time_elapsed = tstop - tstart;
 
-     if (iter == 1)
-       std::cout <<
-       "\n\n Iter        E(elec)              E(tot)               Delta(E)             RMS(D)         Time(s)\n";
-     printf(" %02d %20.12f %20.12f %20.12f %20.12f %10.5lf\n", iter, ehf, ehf + enuc,
-            ediff, rmsd, time_elapsed.count());
+      if (iter == 1)
+        std::cout <<
+        "\n\n Iter        E(elec)              E(tot)               Delta(E)             RMS(D)         Time(s)\n";
+      printf(" %02d %20.12f %20.12f %20.12f %20.12f %10.5lf\n", iter, ehf, ehf + enuc,
+             ediff, rmsd, time_elapsed.count());
 
-   } while (((fabs(ediff) > conv) || (fabs(rmsd) > conv)) && (iter < maxiter));
+    } while (((fabs(ediff) > conv) || (fabs(rmsd) > conv)) && (iter < maxiter));
 
-   printf("** Hartree-Fock energy = %20.12f\n", ehf + enuc);
+    printf("** Hartree-Fock energy = %20.12f\n", ehf + enuc);
 
-   libint2::finalize(); // done with libint
+    libint2::finalize(); // done with libint
 
- } // end of try block; if any exceptions occurred, report them and exit cleanly
+  } // end of try block; if any exceptions occurred, report them and exit cleanly
 
   catch (const char* ex) {
     cerr << "caught exception: " << ex << endl;
@@ -590,18 +585,12 @@ Matrix compute_1body_ints(const std::vector<libint2::Shell>& shells,
   return result;
 }
 
-
-//const auto tstart = std::chrono::high_resolution_clock::now();
-
 Matrix compute_2body_fock_simple(const std::vector<libint2::Shell>& shells,
                                  const Matrix& D) {
-  
 
   using libint2::Shell;
   using libint2::Engine;
   using libint2::Operator;
-
-  //auto time_elapsed = std::chrono::duration<double>::zero();
 
   const auto n = nbasis(shells);
   Matrix G = Matrix::Zero(n,n);
@@ -613,8 +602,6 @@ Matrix compute_2body_fock_simple(const std::vector<libint2::Shell>& shells,
 
   // buf[0] points to the target shell set after every call  to engine.compute()
   const auto& buf = engine.results();
-
-  const auto tstart = std::chrono::high_resolution_clock::now();
 
   // loop over shell pairs of the Fock matrix, {s1,s2}
   // Fock matrix is symmetric, but skipping it here for simplicity (see compute_2body_fock)
@@ -688,19 +675,17 @@ Matrix compute_2body_fock_simple(const std::vector<libint2::Shell>& shells,
   }
 
   return G;
-
 }
-
-
-
 
 Matrix compute_2body_fock(const std::vector<libint2::Shell>& shells,
                           const Matrix& D) {
+
   using libint2::Shell;
   using libint2::Engine;
   using libint2::Operator;
 
   auto time_elapsed = std::chrono::duration<double>::zero();
+
   const auto n = nbasis(shells);
   Matrix G = Matrix::Zero(n,n);
 
@@ -736,108 +721,108 @@ Matrix compute_2body_fock(const std::vector<libint2::Shell>& shells,
   //
   // The real trick is figuring out to which matrix elements of the Fock matrix each permutationally-unique
   // (ab|cd) contributes. STOP READING and try to figure it out yourself. (to check your answer see below)
-    for(int s1=0; s1<shells.size(); ++s1) {           
-     // int ID2 = omp_get_thread_num(); 
-     // int num_threads2 = omp_get_num_threads(); 
-    //  printf("ID (%d), num_threads (%d)", ID2, num_threads2); 
-      auto bf1_first = shell2bf[s1]; // first basis function in this shell
-      auto n1 = shells[s1].size();   // number of basis functions in this shell
-  
-      for(auto s2=0; s2<=s1; ++s2) {
-  
-        auto bf2_first = shell2bf[s2];
-        auto n2 = shells[s2].size();
-  
-        for(auto s3=0; s3<=s1; ++s3) {
-  
-          auto bf3_first = shell2bf[s3];
-          auto n3 = shells[s3].size();
-  
-          const auto s4_max = (s1 == s3) ? s2 : s3;
-          for(auto s4=0; s4<=s4_max; ++s4) {
-  
-            auto bf4_first = shell2bf[s4];
-            auto n4 = shells[s4].size();
-  
-            // compute the permutational degeneracy (i.e. # of equivalents) of the given shell set
-            auto s12_deg = (s1 == s2) ? 1.0 : 2.0;
-            auto s34_deg = (s3 == s4) ? 1.0 : 2.0;
-            auto s12_34_deg = (s1 == s3) ? (s2 == s4 ? 1.0 : 2.0) : 2.0;
-            auto s1234_deg = s12_deg * s34_deg * s12_34_deg;
-  
-            const auto tstart = std::chrono::high_resolution_clock::now();
-  
-            engine.compute(shells[s1], shells[s2], shells[s3], shells[s4]);
-            const auto* buf_1234 = buf[0];
-              if (buf_1234 == nullptr)
-              continue; // if all integrals screened out, skip to next quartet
-  
-            const auto tstop = std::chrono::high_resolution_clock::now();
-            time_elapsed += tstop - tstart;
-  
+
+  // loop over permutationally-unique set of shells
+  for(auto s1=0; s1!=shells.size(); ++s1) {
+
+    auto bf1_first = shell2bf[s1]; // first basis function in this shell
+    auto n1 = shells[s1].size();   // number of basis functions in this shell
+
+    for(auto s2=0; s2<=s1; ++s2) {
+
+      auto bf2_first = shell2bf[s2];
+      auto n2 = shells[s2].size();
+
+      for(auto s3=0; s3<=s1; ++s3) {
+
+        auto bf3_first = shell2bf[s3];
+        auto n3 = shells[s3].size();
+
+        const auto s4_max = (s1 == s3) ? s2 : s3;
+        for(auto s4=0; s4<=s4_max; ++s4) {
+
+          auto bf4_first = shell2bf[s4];
+          auto n4 = shells[s4].size();
+
+          // compute the permutational degeneracy (i.e. # of equivalents) of the given shell set
+          auto s12_deg = (s1 == s2) ? 1.0 : 2.0;
+          auto s34_deg = (s3 == s4) ? 1.0 : 2.0;
+          auto s12_34_deg = (s1 == s3) ? (s2 == s4 ? 1.0 : 2.0) : 2.0;
+          auto s1234_deg = s12_deg * s34_deg * s12_34_deg;
+
+          const auto tstart = std::chrono::high_resolution_clock::now();
+
+          engine.compute(shells[s1], shells[s2], shells[s3], shells[s4]);
+          const auto* buf_1234 = buf[0];
+          if (buf_1234 == nullptr)
+            continue; // if all integrals screened out, skip to next quartet
+
+          const auto tstop = std::chrono::high_resolution_clock::now();
+          time_elapsed += tstop - tstart;
+
           // ANSWER
-            // 1) each shell set of integrals contributes up to 6 shell sets of the Fock matrix:
-            //    F(a,b) += (ab|cd) * D(c,d)
-            //    F(c,d) += (ab|cd) * D(a,b)
-            //    F(b,d) -= 1/4 * (ab|cd) * D(a,c)
-            //    F(b,c) -= 1/4 * (ab|cd) * D(a,d)
-            //    F(a,c) -= 1/4 * (ab|cd) * D(b,d)
-            //    F(a,d) -= 1/4 * (ab|cd) * D(b,c)
-            // 2) each permutationally-unique integral (shell set) must be scaled by its degeneracy,
-            //    i.e. the number of the integrals/sets equivalent to it
-            // 3) the end result must be symmetrized 
-            #pragma omp parallel 
-            {   
-              std::cout << "s1234_deg is " << s1234_deg << std::endl;  
-              int ID = omp_get_thread_num();
-              int totalThreads = omp_get_num_threads();  
-              int f1234; 
-              #pragma omp for 
-              for(int f1=0;f1>n1; ++f1) {
-                int f1234 = 0; 
-                int ID = omp_get_thread_num();
-                int numThreads = omp_get_num_threads(); 
-                //std::cout << "f1 is " << f1 << " and f1234 is " << f1234 << std::endl; 
-                //std::cout << " s1,s2,s3,s4 = " << s1 << s2 << s3 << s4 << std::endl;
-                //std::cout << "ID is " << ID << "  Numthreads " << numThreads << std::endl; 
-                const auto bf1 = f1 + bf1_first;
-                for(int f2=0; f2<n2; ++f2) {
-                  const auto bf2 = f2 + bf2_first;
-                  for(int f3=0; f3<n3; ++f3) {
-                    const auto bf3 = f3 + bf3_first; 
-                      for(int f4=0; f4<n4; ++f4, ++f1234) {
-                        std::cout << "f1234 is " << f1234 << std::endl;
-                        const auto bf4 = f4 + bf4_first;
-  
-                        const auto value = buf_1234[f1234];
-  
-                        const auto value_scal_by_deg = value * s1234_deg;
-                        std::cout << " scale value is" << value_scal_by_deg << std::endl; 
-                        G(bf1,bf2) += D(bf3,bf4) * value_scal_by_deg;
-                        std:: cout << " G(bf1,bf2) is " << G(bf1,bf2) << "D(bf1,bf2) is " << D(bf1,bf2) << std::endl; 
-                        G(bf3,bf4) += D(bf1,bf2) * value_scal_by_deg;
-                        G(bf1,bf3) -= 0.25 * D(bf2,bf4) * value_scal_by_deg;
-                        G(bf2,bf4) -= 0.25 * D(bf1,bf3) * value_scal_by_deg;
-                        G(bf1,bf4) -= 0.25 * D(bf2,bf3) * value_scal_by_deg;
-                        G(bf2,bf3) -= 0.25 * D(bf1,bf4) * value_scal_by_deg; 
-                        std::cout << " G matrix1" << std::endl;
-                        std::cout << G << std::endl; 
-                    }
-                  }
+          // 1) each shell set of integrals contributes up to 6 shell sets of the Fock matrix:
+          //    F(a,b) += (ab|cd) * D(c,d)
+          //    F(c,d) += (ab|cd) * D(a,b)
+          //    F(b,d) -= 1/4 * (ab|cd) * D(a,c)
+          //    F(b,c) -= 1/4 * (ab|cd) * D(a,d)
+          //    F(a,c) -= 1/4 * (ab|cd) * D(b,d)
+          //    F(a,d) -= 1/4 * (ab|cd) * D(b,c)
+          // 2) each permutationally-unique integral (shell set) must be scaled by its degeneracy,
+          //    i.e. the number of the integrals/sets equivalent to it
+          // 3) the end result must be symmetrized
+          for(auto f1=0; f1!=n1; ++f1) {
+           int f1234 = f1; 
+           std::cout << " n1 is " << n1 << std::endl; 
+           std::cout << "f1 is " << f1 << "f1234 is " << f1234 << std::endl;
+            const auto bf1 = f1 + bf1_first;
+            for(auto f2=0; f2!=n2; ++f2) {
+              const auto bf2 = f2 + bf2_first;
+              std::cout <<  "f1234 is " << f1234 << " f2 is " << f2 << " n2 is " << n2 << std::endl;
+              for(auto f3=0; f3!=n3; ++f3) {
+                const auto bf3 = f3 + bf3_first;
+
+                std::cout <<  "f1234 is " << f1234 << " f3 is " << f3 << " n3 is " << n3 << std::endl;
+                int f4, bf4;   
+                #pragma omp parallel for private(f4,bf4) shared(n4,s1234_deg,buf_1234,D,f1234)   
+                for(f4=0; f4<n4; ++f4) {
+                  bf4 = f4 + bf4_first;
+
+                  std::cout <<  " f4 is " << f4 << " n4 is " << n4 << std::endl;
+                  std::cout << "(in loop) f1234 is " << f1234 << std::endl; 
+                  const auto value = buf_1234[f1234];
+
+                  const auto value_scal_by_deg = value * s1234_deg;
+                  std::cout << "val_scal_by_deg is " << value_scal_by_deg << std::endl;                
+            
+                  G(bf1,bf2) += D(bf3,bf4) * value_scal_by_deg;
+                  std::cout << "G(bf1,bf2) is " << G(bf1,bf2) << std::endl; 
+                  G(bf3,bf4) += D(bf1,bf2) * value_scal_by_deg;
+                  std::cout << "G(bf3,bf4) is " << G(bf3,bf4) << std::endl;
+                  G(bf1,bf3) -= 0.25 * D(bf2,bf4) * value_scal_by_deg;
+                  std::cout << "G(bf1,bf3) is " << G(bf1,bf3) << std::endl;
+                  G(bf2,bf4) -= 0.25 * D(bf1,bf3) * value_scal_by_deg;
+                  std::cout << "G(bf2,bf4) is " << G(bf2,bf4) << std::endl;
+                  G(bf1,bf4) -= 0.25 * D(bf2,bf3) * value_scal_by_deg;
+                  std::cout << "G(bf1,bf4) is " << G(bf1,bf4) << std::endl;
+                  G(bf2,bf3) -= 0.25 * D(bf1,bf4) * value_scal_by_deg;
+                  std::cout << "G(bf2,bf3) is " << G(bf2,bf3) << std::endl;
+                  std::cout << G << std::endl; 
+                  ++f1234; 
                 }
               }
             }
           }
+
         }
       }
     }
-
-  std::cout << " Final G matrix" << std::endl;
+  }
+  std::cout << "Final G" << std::endl; 
   std::cout << G << std::endl;
   // symmetrize the result and return
   Matrix Gt = G.transpose();
   return 0.5 * (G + Gt);
-  std::cout << " Final Gt matrix" << std::endl;
-  std::cout << G << std::endl;
-} //end of fock matrix 
-
+  std::cout << " Final Gt" << std::endl;
+  std::cout << Gt  << std::endl;
+}

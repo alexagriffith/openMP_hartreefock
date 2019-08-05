@@ -725,24 +725,24 @@ Matrix compute_2body_fock(const std::vector<libint2::Shell>& shells,
   // loop over permutationally-unique set of shells
   for(auto s1=0; s1!=shells.size(); ++s1) {
 
-    auto bf1_first = shell2bf[s1]; // first basis function in this shell
-    auto n1 = shells[s1].size();   // number of basis functions in this shell
+    int bf1_first = shell2bf[s1]; // first basis function in this shell
+    int n1 = shells[s1].size();   // number of basis functions in this shell
 
-    for(auto s2=0; s2<=s1; ++s2) {
+    for(int s2=0; s2<=s1; ++s2) {
 
-      auto bf2_first = shell2bf[s2];
-      auto n2 = shells[s2].size();
+      int bf2_first = shell2bf[s2];
+      int n2 = shells[s2].size();
 
-      for(auto s3=0; s3<=s1; ++s3) {
+      for(int s3=0; s3<=s1; ++s3) {
 
-        auto bf3_first = shell2bf[s3];
-        auto n3 = shells[s3].size();
+        int bf3_first = shell2bf[s3];
+        int n3 = shells[s3].size();
 
         const auto s4_max = (s1 == s3) ? s2 : s3;
-        for(auto s4=0; s4<=s4_max; ++s4) {
+        for(int s4=0; s4<=s4_max; ++s4) {
 
-          auto bf4_first = shell2bf[s4];
-          auto n4 = shells[s4].size();
+          int bf4_first = shell2bf[s4];
+          int n4 = shells[s4].size();
 
           // compute the permutational degeneracy (i.e. # of equivalents) of the given shell set
           auto s12_deg = (s1 == s2) ? 1.0 : 2.0;
@@ -771,30 +771,32 @@ Matrix compute_2body_fock(const std::vector<libint2::Shell>& shells,
           // 2) each permutationally-unique integral (shell set) must be scaled by its degeneracy,
           //    i.e. the number of the integrals/sets equivalent to it
           // 3) the end result must be symmetrized
-          for(auto f1=0; f1!=n1; ++f1) {
-           int f1234 = f1; 
+          for(int f1=0; f1!=n1; ++f1) {
+           int f1234 = 0; 
            std::cout << " n1 is " << n1 << std::endl; 
            std::cout << "f1 is " << f1 << "f1234 is " << f1234 << std::endl;
-            const auto bf1 = f1 + bf1_first;
-            for(auto f2=0; f2!=n2; ++f2) {
-              const auto bf2 = f2 + bf2_first;
+            const int bf1 = f1 + bf1_first;
+            for(int f2=0; f2!=n2; ++f2) {
+              const int bf2 = f2 + bf2_first;
               std::cout <<  "f1234 is " << f1234 << " f2 is " << f2 << " n2 is " << n2 << std::endl;
-              for(auto f3=0; f3!=n3; ++f3) {
-                const auto bf3 = f3 + bf3_first;
+              for(int f3=0; f3!=n3; ++f3) {
+                const int bf3 = f3 + bf3_first;
 
                 std::cout <<  "f1234 is " << f1234 << " f3 is " << f3 << " n3 is " << n3 << std::endl;
-                int f4, bf4;   
-                #pragma omp parallel for private(f4,bf4) shared(n4,s1234_deg,buf_1234,D,f1234)   
+                int f4, bf4, bf4_first; double value, value_scal_by_deg;   
+                #pragma omp parallel for private(f4,bf4,value,value_scal_by_deg) shared(n4,s1234_deg,buf_1234,D,bf4_first,G,f1234)   
                 for(f4=0; f4<n4; ++f4) {
+                  //++f1234; 
                   bf4 = f4 + bf4_first;
-
+                  std::cout << "bf4 is " << bf4 << "bf4_first is " << bf4_first << std::endl; 
                   std::cout <<  " f4 is " << f4 << " n4 is " << n4 << std::endl;
                   std::cout << "(in loop) f1234 is " << f1234 << std::endl; 
-                  const auto value = buf_1234[f1234];
+                  double value = buf_1234[f1234];
+                  std::cout << " value is " << value << std::endl; 
 
-                  const auto value_scal_by_deg = value * s1234_deg;
+                  double value_scal_by_deg = value * s1234_deg;
                   std::cout << "val_scal_by_deg is " << value_scal_by_deg << std::endl;                
-            
+                  
                   G(bf1,bf2) += D(bf3,bf4) * value_scal_by_deg;
                   std::cout << "G(bf1,bf2) is " << G(bf1,bf2) << std::endl; 
                   G(bf3,bf4) += D(bf1,bf2) * value_scal_by_deg;

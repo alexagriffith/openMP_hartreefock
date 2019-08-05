@@ -1,8 +1,16 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-Libint - a library for the evaluation of molecular integrals of many-body operators over Gaussian functions
+# openMP_hartreefock
+Multithreading of hartree-fock program using openMP API. Uses the libint library and test code "hartree-fock" 
 
-- master status: [![Build Status](https://travis-ci.org/evaleev/libint.svg?branch=master)](https://travis-ci.org/evaleev/libint)
+The test code can be found in tests/hartree-fock
+
+Under pi_tests, there are simple openMP codes that I wrote that do not use libint. One uses synchronization, and the other uses PAD to solve the integral of 4.0/(1+x^2) from 0 to 1 equals pi. 
+
+Information about the libint library is below. The libint library is only used here and was not written by me. 
+
+--------------------
+
+Libint - a library for the evaluation of molecular integrals of many-body operators over Gaussian function
+
 - project page: http://libint.valeyev.net/
 - e-mail - libint@valeyev.net
 
@@ -10,10 +18,5 @@ See [the wiki](https://github.com/evaleev/libint/wiki) for installation and usag
 
 Copyright (C) 2004-2018 Edward F. Valeev
 =======
-# openMP_hartreefock
-Multithreading of hartree-fock program using openMP API. Uses the libint library and test code "hartree-fock" 
->>>>>>> 20fc7625f98a9d1079dc46a0f94af5f19d23f537
-=======
-# openMP_hartreefock
-Multithreading of hartree-fock program using openMP API. Uses the libint library and test code "hartree-fock" 
->>>>>>> 20fc7625f98a9d1079dc46a0f94af5f19d23f537
+
+
